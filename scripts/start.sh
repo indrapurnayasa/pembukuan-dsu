@@ -2,6 +2,11 @@
 set -e
 
 PROJECT_DIR="/Users/ngurahindrapurnayasa/Documents/Project Ayi/pembukuan-dsu"
+USE_TUNNEL=false
+
+if [ "$1" = "--tunnel" ] || [ "$1" = "-t" ]; then
+  USE_TUNNEL=true
+fi
 
 echo "=== Start Local Dev Server ==="
 echo ""
@@ -28,6 +33,38 @@ if [ ! -d node_modules ]; then
   npm install
 fi
 
+# Check tunnel dependencies
+if [ "$USE_TUNNEL" = true ]; then
+  if ! command -v ngrok &> /dev/null; then
+    echo "Error: ngrok not found."
+    echo "Install with: brew install ngrok"
+    echo "Then set token: ngrok config add-authtoken YOUR_TOKEN"
+    exit 1
+  fi
+
+  if ! ngrok config check &> /dev/null; then
+    echo "Error: ngrok authtoken not configured."
+    echo "Get token from https://dashboard.ngrok.com/get-started/your-authtoken"
+    echo "Then run: ngrok config add-authtoken YOUR_TOKEN"
+    exit 1
+  fi
+
+  echo "Starting ngrok tunnel..."
+  ngrok http 3000 --log=stdout &
+  NGROK_PID=$!
+
+  # Give ngrok time to start
+  sleep 3
+  echo ""
+  echo "Public URL should appear above soon."
+  echo ""
+fi
+
 # Start dev server
 echo "Starting Next.js dev server..."
 npm run dev
+
+# Cleanup ngrok on exit
+if [ "$USE_TUNNEL" = true ]; then
+  trap "kill $NGROK_PID 2>/dev/null || true" EXIT
+fi
