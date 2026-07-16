@@ -7,6 +7,15 @@ import { Label } from "@/components/ui/label";
 import { createPenjualan, updatePenjualan } from "@/app/penjualan/actions";
 import { rupiah } from "@/lib/format";
 import { toast } from "sonner";
+import {
+  Calculator,
+  Calendar,
+  DollarSign,
+  Scale,
+  Truck,
+  User,
+  Weight,
+} from "lucide-react";
 
 interface PenjualanFormProps {
   initial?: {
@@ -23,15 +32,16 @@ interface PenjualanFormProps {
   onDone?: () => void;
 }
 
-const fields = [
-  { name: "tanggal", label: "Tanggal" },
-  { name: "supir", label: "Supir Mobil" },
-  { name: "berat_berangkat", label: "Berat Mobil Berangkat" },
-  { name: "berat_pabrik", label: "Berat Mobil Pabrik" },
-  { name: "potongan_pabrik", label: "Potongan Pabrik" },
-  { name: "harga_pabrik", label: "Harga Pabrik" },
-  { name: "harga_pencairan", label: "Harga Pencairan" },
-  { name: "upah_mobil", label: "Upah Mobil" },
+const weightFields = [
+  { name: "berat_berangkat", label: "Berat Mobil Berangkat", unit: "kg", icon: Weight },
+  { name: "berat_pabrik", label: "Berat Mobil Pabrik", unit: "kg", icon: Scale },
+  { name: "potongan_pabrik", label: "Potongan Pabrik", unit: "kg", icon: Scale },
+];
+
+const priceFields = [
+  { name: "harga_pabrik", label: "Harga Pabrik", unit: "Rp/kg", icon: DollarSign },
+  { name: "harga_pencairan", label: "Harga Pencairan", unit: "Rp/kg", icon: DollarSign },
+  { name: "upah_mobil", label: "Upah Mobil", unit: "Rp", icon: DollarSign },
 ];
 
 export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
@@ -44,6 +54,7 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
     upah_mobil: initial?.upah_mobil ?? 0,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState(false);
 
   const calc = useMemo(() => {
     const selisih = vals.berat_berangkat - vals.berat_pabrik - vals.potongan_pabrik;
@@ -76,7 +87,8 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
     ]) {
       const v = Number(formData.get(key));
       if (!v || v < 0) {
-        const label = fields.find((f) => f.name === key)?.label ?? key;
+        const label =
+          [...weightFields, ...priceFields].find((f) => f.name === key)?.label ?? key;
         nextErrors[key] = `${label} harus angka ≥ 0`;
       }
     }
@@ -88,146 +100,127 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
     }
 
     setErrors({});
+    setPending(true);
 
-    if (initial) {
-      await updatePenjualan(initial.id, formData);
-      toast.success("Data penjualan diperbarui");
-      onDone?.();
-    } else {
-      await createPenjualan(formData);
+    try {
+      if (initial) {
+        await updatePenjualan(initial.id, formData);
+        toast.success("Data penjualan diperbarui");
+        onDone?.();
+      } else {
+        await createPenjualan(formData);
+      }
+    } finally {
+      setPending(false);
     }
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4" noValidate>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="tanggal">Tanggal</Label>
-          <Input
-            id="tanggal"
-            name="tanggal"
-            type="date"
-            defaultValue={initial?.tanggal ?? ""}
-            aria-invalid={!!errors.tanggal}
-          />
-          {errors.tanggal && (
-            <p className="text-xs text-destructive mt-1">{errors.tanggal}</p>
-          )}
+    <form action={handleSubmit} className="space-y-6" noValidate>
+      {<section className="space-y-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Calendar className="size-4" /> Informasi Pengiriman
         </div>
-        <div>
-          <Label htmlFor="supir">Supir Mobil</Label>
-          <Input
-            id="supir"
-            name="supir"
-            placeholder="Nama supir"
-            defaultValue={initial?.supir ?? ""}
-            aria-invalid={!!errors.supir}
-          />
-          {errors.supir && (
-            <p className="text-xs text-destructive mt-1">{errors.supir}</p>
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="berat_berangkat">Berat Mobil Berangkat (kg)</Label>
-          <Input
-            id="berat_berangkat"
-            name="berat_berangkat"
-            type="number"
-            min="0"
-            defaultValue={initial?.berat_berangkat ?? ""}
-            onChange={handleChange}
-            aria-invalid={!!errors.berat_berangkat}
-          />
-          {errors.berat_berangkat && (
-            <p className="text-xs text-destructive mt-1">{errors.berat_berangkat}</p>
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="tanggal">Tanggal</Label>
+            <Input
+              id="tanggal"
+              name="tanggal"
+              type="date"
+              defaultValue={initial?.tanggal ?? ""}
+              aria-invalid={!!errors.tanggal}
+            />
+            {errors.tanggal && (
+              <p className="text-xs text-destructive mt-1">{errors.tanggal}</p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="supir">Supir Mobil</Label>
+            <Input
+              id="supir"
+              name="supir"
+              placeholder="Nama supir"
+              defaultValue={initial?.supir ?? ""}
+              aria-invalid={!!errors.supir}
+            />
+            {errors.supir && (
+              <p className="text-xs text-destructive mt-1">{errors.supir}</p>
+            )}
+          </div>
         </div>
-        <div>
-          <Label htmlFor="berat_pabrik">Berat Mobil Pabrik (kg)</Label>
-          <Input
-            id="berat_pabrik"
-            name="berat_pabrik"
-            type="number"
-            min="0"
-            defaultValue={initial?.berat_pabrik ?? ""}
-            onChange={handleChange}
-            aria-invalid={!!errors.berat_pabrik}
-          />
-          {errors.berat_pabrik && (
-            <p className="text-xs text-destructive mt-1">{errors.berat_pabrik}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="potongan_pabrik">Potongan Pabrik (kg)</Label>
-          <Input
-            id="potongan_pabrik"
-            name="potongan_pabrik"
-            type="number"
-            min="0"
-            defaultValue={initial?.potongan_pabrik ?? ""}
-            onChange={handleChange}
-            aria-invalid={!!errors.potongan_pabrik}
-          />
-          {errors.potongan_pabrik && (
-            <p className="text-xs text-destructive mt-1">{errors.potongan_pabrik}</p>
-          )}
-        </div>
-      </div>
+      </section>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="harga_pabrik">Harga Pabrik (Rp/kg)</Label>
-          <Input
-            id="harga_pabrik"
-            name="harga_pabrik"
-            type="number"
-            min="0"
-            defaultValue={initial?.harga_pabrik ?? ""}
-            onChange={handleChange}
-            aria-invalid={!!errors.harga_pabrik}
-          />
-          {errors.harga_pabrik && (
-            <p className="text-xs text-destructive mt-1">{errors.harga_pabrik}</p>
-          )}
+      {<section className="space-y-4 rounded-xl border bg-muted/30 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Truck className="size-4" /> Berat Kendaraan
         </div>
-        <div>
-          <Label htmlFor="harga_pencairan">Harga Pencairan (Rp/kg)</Label>
-          <Input
-            id="harga_pencairan"
-            name="harga_pencairan"
-            type="number"
-            min="0"
-            defaultValue={initial?.harga_pencairan ?? ""}
-            onChange={handleChange}
-            aria-invalid={!!errors.harga_pencairan}
-          />
-          {errors.harga_pencairan && (
-            <p className="text-xs text-destructive mt-1">{errors.harga_pencairan}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="upah_mobil">Upah Mobil (Rp)</Label>
-          <Input
-            id="upah_mobil"
-            name="upah_mobil"
-            type="number"
-            min="0"
-            defaultValue={initial?.upah_mobil ?? ""}
-            onChange={handleChange}
-            aria-invalid={!!errors.upah_mobil}
-          />
-          {errors.upah_mobil && (
-            <p className="text-xs text-destructive mt-1">{errors.upah_mobil}</p>
-          )}
-        </div>
-      </div>
 
-      <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
-        <p className="text-sm font-medium">Perkiraan perhitungan:</p>
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {weightFields.map((f) => (
+            <div key={f.name}>
+              <Label htmlFor={f.name}>
+                {f.label} ({f.unit})
+              </Label>
+              <div className="relative">
+                <f.icon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  id={f.name}
+                  name={f.name}
+                  type="number"
+                  min="0"
+                  defaultValue={initial?.[f.name as keyof typeof initial] ?? ""}
+                  onChange={handleChange}
+                  className="pl-9"
+                  aria-invalid={!!errors[f.name]}
+                />
+              </div>
+              {errors[f.name] && (
+                <p className="text-xs text-destructive mt-1">{errors[f.name]}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>}
+
+      {<section className="space-y-4 rounded-xl border bg-muted/30 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <DollarSign className="size-4" /> Harga & Upah
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {priceFields.map((f) => (
+            <div key={f.name}>
+              <Label htmlFor={f.name}>
+                {f.label} ({f.unit})
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+                <Input
+                  id={f.name}
+                  name={f.name}
+                  type="number"
+                  min="0"
+                  defaultValue={initial?.[f.name as keyof typeof initial] ?? ""}
+                  onChange={handleChange}
+                  className="pl-9"
+                  aria-invalid={!!errors[f.name]}
+                />
+              </div>
+              {errors[f.name] && (
+                <p className="text-xs text-destructive mt-1">{errors[f.name]}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>}
+
+      <section className="rounded-xl border bg-gradient-to-br from-emerald-50 to-blue-50 p-5 space-y-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+          <Calculator className="size-4" /> Hasil Perhitungan Otomatis
+        </div>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
           <span className="text-muted-foreground">Selisih Ram - Pabrik:</span>
           <span className="text-right font-semibold">{calc.selisih.toLocaleString("id-ID")} kg</span>
           <span className="text-muted-foreground">Total Pabrik:</span>
@@ -235,12 +228,14 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
           <span className="text-muted-foreground">Total Mobil:</span>
           <span className="text-right font-semibold">{rupiah(calc.totalMobil)}</span>
           <span className="text-muted-foreground">Total Pencairan:</span>
-          <span className="text-right font-semibold text-emerald-600">{rupiah(calc.totalPencairan)}</span>
+          <span className="text-right font-bold text-emerald-700 text-base">
+            {rupiah(calc.totalPencairan)}
+          </span>
         </div>
-      </div>
+      </section>
 
-      <Button type="submit" className="w-full">
-        {initial ? "Simpan Perubahan" : "Simpan"}
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? "Menyimpan..." : initial ? "Simpan Perubahan" : "Simpan"}
       </Button>
     </form>
   );

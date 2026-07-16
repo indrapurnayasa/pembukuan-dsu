@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createKas, updateKas } from "@/app/kas/actions";
 import { toast } from "sonner";
+import { ArrowDownLeft, ArrowUpRight, Calendar, FileText } from "lucide-react";
 
 const transaksiOptions = [
-  "Deposit Ram Singkut",
-  "Pembelian Brondolan",
-  "Biaya Harian",
+  { value: "Deposit Ram Singkut", label: "Deposit Ram Singkut", debit: true },
+  { value: "Pembelian Brondolan", label: "Pembelian Brondolan", debit: false },
+  { value: "Biaya Harian", label: "Biaya Harian", debit: false },
 ];
 
 interface KasFormProps {
@@ -28,7 +29,9 @@ interface KasFormProps {
 export function KasForm({ initial, onDone }: KasFormProps) {
   const [transaksi, setTransaksi] = useState(initial?.transaksi ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const isDebit = transaksi === "Deposit Ram Singkut";
+  const [pending, setPending] = useState(false);
+  const selected = transaksiOptions.find((t) => t.value === transaksi);
+  const isDebit = selected?.debit ?? false;
 
   async function handleSubmit(formData: FormData) {
     const nextErrors: Record<string, string> = {};
@@ -49,90 +52,119 @@ export function KasForm({ initial, onDone }: KasFormProps) {
     }
 
     setErrors({});
+    setPending(true);
 
-    if (initial) {
-      await updateKas(initial.id, formData);
-      toast.success("Data KAS diperbarui");
-      onDone?.();
-    } else {
-      await createKas(formData);
+    try {
+      if (initial) {
+        await updateKas(initial.id, formData);
+        toast.success("Data KAS diperbarui");
+        onDone?.();
+      } else {
+        await createKas(formData);
+      }
+    } finally {
+      setPending(false);
     }
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4" noValidate>
-      <div>
-        <Label htmlFor="tanggal">Tanggal</Label>
-        <Input
-          id="tanggal"
-          name="tanggal"
-          type="date"
-          defaultValue={initial?.tanggal ?? ""}
-          aria-invalid={!!errors.tanggal}
-        />
-        {errors.tanggal && (
-          <p className="text-xs text-destructive mt-1">{errors.tanggal}</p>
-        )}
+    <form action={handleSubmit} className="space-y-5" noValidate>
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Calendar className="size-4" /> Informasi Transaksi
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="tanggal">Tanggal</Label>
+            <Input
+              id="tanggal"
+              name="tanggal"
+              type="date"
+              defaultValue={initial?.tanggal ?? ""}
+              aria-invalid={!!errors.tanggal}
+            />
+            {errors.tanggal && (
+              <p className="text-xs text-destructive mt-1">{errors.tanggal}</p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="transaksi">Jenis Transaksi</Label>
+            <select
+              id="transaksi"
+              name="transaksi"
+              value={transaksi}
+              onChange={(e) => setTransaksi(e.target.value)}
+              className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 ${
+                errors.transaksi
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : "border-input focus-visible:ring-ring"
+              }`}
+              aria-invalid={!!errors.transaksi}
+            >
+              <option value="" disabled>Pilih transaksi...</option>
+              {transaksiOptions.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            {errors.transaksi && (
+              <p className="text-xs text-destructive mt-1">{errors.transaksi}</p>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div>
-        <Label htmlFor="transaksi">Transaksi</Label>
-        <select
-          id="transaksi"
-          name="transaksi"
-          value={transaksi}
-          onChange={(e) => setTransaksi(e.target.value)}
-          className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 ${
-            errors.transaksi
-              ? "border-destructive focus-visible:ring-destructive"
-              : "border-input focus-visible:ring-ring"
-          }`}
-          aria-invalid={!!errors.transaksi}
-        >
-          <option value="" disabled>Pilih transaksi...</option>
-          {transaksiOptions.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        {errors.transaksi && (
-          <p className="text-xs text-destructive mt-1">{errors.transaksi}</p>
-        )}
-      </div>
+      {selected && (
+        <div className="space-y-4 rounded-xl border bg-muted/30 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            {isDebit ? (
+              <ArrowDownLeft className="size-4 text-emerald-600" />
+            ) : (
+              <ArrowUpRight className="size-4 text-rose-600" />
+            )}
+            {isDebit ? "Pemasukan" : "Pengeluaran"}
+          </div>
 
-      {transaksi && (
-        <div>
-          <Label htmlFor="amount">{isDebit ? "Debet" : "Kredit"}</Label>
-          <Input
-            id="amount"
-            name={isDebit ? "debet" : "kredit"}
-            type="number"
-            min="0"
-            defaultValue={
-              isDebit ? initial?.debet ?? "" : initial?.kredit ?? ""
-            }
-            placeholder={isDebit ? "Jumlah masuk" : "Jumlah keluar"}
-            aria-invalid={!!errors.amount}
-          />
-          {errors.amount && (
-            <p className="text-xs text-destructive mt-1">{errors.amount}</p>
-          )}
+          <div>
+            <Label htmlFor="amount">{isDebit ? "Jumlah Debet" : "Jumlah Kredit"}</Label>
+            <Input
+              id="amount"
+              name={isDebit ? "debet" : "kredit"}
+              type="number"
+              min="0"
+              defaultValue={
+                isDebit ? initial?.debet ?? "" : initial?.kredit ?? ""
+              }
+              placeholder={isDebit ? "Jumlah masuk" : "Jumlah keluar"}
+              aria-invalid={!!errors.amount}
+            />
+            {errors.amount && (
+              <p className="text-xs text-destructive mt-1">{errors.amount}</p>
+            )}
+          </div>
         </div>
       )}
 
-      <div>
-        <Label htmlFor="keterangan">Keterangan</Label>
-        <Input
-          id="keterangan"
-          name="keterangan"
-          defaultValue={initial?.keterangan ?? ""}
-          placeholder="Opsional"
-        />
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <FileText className="size-4" /> Keterangan Tambahan
+        </div>
+        <div>
+          <Label htmlFor="keterangan">Keterangan</Label>
+          <Input
+            id="keterangan"
+            name="keterangan"
+            defaultValue={initial?.keterangan ?? ""}
+            placeholder="Opsional"
+          />
+        </div>
       </div>
 
-      <Button type="submit" className="w-full">
-        {initial ? "Simpan Perubahan" : "Simpan"}
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? "Menyimpan..." : initial ? "Simpan Perubahan" : "Simpan"}
       </Button>
     </form>
   );
