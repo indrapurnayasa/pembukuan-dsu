@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createPenjualan, updatePenjualan } from "@/app/penjualan/actions";
 import { rupiah } from "@/lib/format";
+import { toast } from "sonner";
 
 interface PenjualanFormProps {
   initial?: {
@@ -22,6 +23,17 @@ interface PenjualanFormProps {
   onDone?: () => void;
 }
 
+const fields = [
+  { name: "tanggal", label: "Tanggal" },
+  { name: "supir", label: "Supir Mobil" },
+  { name: "berat_berangkat", label: "Berat Mobil Berangkat" },
+  { name: "berat_pabrik", label: "Berat Mobil Pabrik" },
+  { name: "potongan_pabrik", label: "Potongan Pabrik" },
+  { name: "harga_pabrik", label: "Harga Pabrik" },
+  { name: "harga_pencairan", label: "Harga Pencairan" },
+  { name: "upah_mobil", label: "Upah Mobil" },
+];
+
 export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
   const [vals, setVals] = useState({
     berat_berangkat: initial?.berat_berangkat ?? 0,
@@ -31,6 +43,7 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
     harga_pencairan: initial?.harga_pencairan ?? 0,
     upah_mobil: initial?.upah_mobil ?? 0,
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const calc = useMemo(() => {
     const selisih = vals.berat_berangkat - vals.berat_pabrik - vals.potongan_pabrik;
@@ -48,8 +61,37 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
   }
 
   async function handleSubmit(formData: FormData) {
+    const nextErrors: Record<string, string> = {};
+
+    if (!formData.get("tanggal")) nextErrors.tanggal = "Tanggal wajib diisi";
+    if (!formData.get("supir")) nextErrors.supir = "Nama supir wajib diisi";
+
+    for (const key of [
+      "berat_berangkat",
+      "berat_pabrik",
+      "potongan_pabrik",
+      "harga_pabrik",
+      "harga_pencairan",
+      "upah_mobil",
+    ]) {
+      const v = Number(formData.get(key));
+      if (!v || v < 0) {
+        const label = fields.find((f) => f.name === key)?.label ?? key;
+        nextErrors[key] = `${label} harus angka ≥ 0`;
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast.error("Form belum lengkap. Periksa field yang ditandai.");
+      return;
+    }
+
+    setErrors({});
+
     if (initial) {
       await updatePenjualan(initial.id, formData);
+      toast.success("Data penjualan diperbarui");
       onDone?.();
     } else {
       await createPenjualan(formData);
@@ -57,7 +99,7 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form action={handleSubmit} className="space-y-4" noValidate>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="tanggal">Tanggal</Label>
@@ -65,9 +107,12 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             id="tanggal"
             name="tanggal"
             type="date"
-            required
             defaultValue={initial?.tanggal ?? ""}
+            aria-invalid={!!errors.tanggal}
           />
+          {errors.tanggal && (
+            <p className="text-xs text-destructive mt-1">{errors.tanggal}</p>
+          )}
         </div>
         <div>
           <Label htmlFor="supir">Supir Mobil</Label>
@@ -75,9 +120,12 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             id="supir"
             name="supir"
             placeholder="Nama supir"
-            required
             defaultValue={initial?.supir ?? ""}
+            aria-invalid={!!errors.supir}
           />
+          {errors.supir && (
+            <p className="text-xs text-destructive mt-1">{errors.supir}</p>
+          )}
         </div>
       </div>
 
@@ -89,10 +137,13 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             name="berat_berangkat"
             type="number"
             min="0"
-            required
             defaultValue={initial?.berat_berangkat ?? ""}
             onChange={handleChange}
+            aria-invalid={!!errors.berat_berangkat}
           />
+          {errors.berat_berangkat && (
+            <p className="text-xs text-destructive mt-1">{errors.berat_berangkat}</p>
+          )}
         </div>
         <div>
           <Label htmlFor="berat_pabrik">Berat Mobil Pabrik (kg)</Label>
@@ -101,10 +152,13 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             name="berat_pabrik"
             type="number"
             min="0"
-            required
             defaultValue={initial?.berat_pabrik ?? ""}
             onChange={handleChange}
+            aria-invalid={!!errors.berat_pabrik}
           />
+          {errors.berat_pabrik && (
+            <p className="text-xs text-destructive mt-1">{errors.berat_pabrik}</p>
+          )}
         </div>
         <div>
           <Label htmlFor="potongan_pabrik">Potongan Pabrik (kg)</Label>
@@ -113,10 +167,13 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             name="potongan_pabrik"
             type="number"
             min="0"
-            required
             defaultValue={initial?.potongan_pabrik ?? ""}
             onChange={handleChange}
+            aria-invalid={!!errors.potongan_pabrik}
           />
+          {errors.potongan_pabrik && (
+            <p className="text-xs text-destructive mt-1">{errors.potongan_pabrik}</p>
+          )}
         </div>
       </div>
 
@@ -128,10 +185,13 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             name="harga_pabrik"
             type="number"
             min="0"
-            required
             defaultValue={initial?.harga_pabrik ?? ""}
             onChange={handleChange}
+            aria-invalid={!!errors.harga_pabrik}
           />
+          {errors.harga_pabrik && (
+            <p className="text-xs text-destructive mt-1">{errors.harga_pabrik}</p>
+          )}
         </div>
         <div>
           <Label htmlFor="harga_pencairan">Harga Pencairan (Rp/kg)</Label>
@@ -140,10 +200,13 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             name="harga_pencairan"
             type="number"
             min="0"
-            required
             defaultValue={initial?.harga_pencairan ?? ""}
             onChange={handleChange}
+            aria-invalid={!!errors.harga_pencairan}
           />
+          {errors.harga_pencairan && (
+            <p className="text-xs text-destructive mt-1">{errors.harga_pencairan}</p>
+          )}
         </div>
         <div>
           <Label htmlFor="upah_mobil">Upah Mobil (Rp)</Label>
@@ -152,10 +215,13 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             name="upah_mobil"
             type="number"
             min="0"
-            required
             defaultValue={initial?.upah_mobil ?? ""}
             onChange={handleChange}
+            aria-invalid={!!errors.upah_mobil}
           />
+          {errors.upah_mobil && (
+            <p className="text-xs text-destructive mt-1">{errors.upah_mobil}</p>
+          )}
         </div>
       </div>
 
