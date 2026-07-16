@@ -20,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-zinc-50 text-foreground dark:bg-zinc-950">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           {children}
           <Toaster />
         </ThemeProvider>
