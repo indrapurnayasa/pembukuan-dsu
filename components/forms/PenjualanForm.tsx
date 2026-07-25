@@ -13,7 +13,6 @@ import {
   DollarSign,
   Scale,
   Truck,
-  User,
   Weight,
 } from "lucide-react";
 
@@ -26,9 +25,9 @@ interface PenjualanFormProps {
     berat_pabrik: number;
     potongan_pabrik: number;
     harga_pabrik: number;
-    harga_pencairan: number;
     upah_mobil: number;
   };
+  supirOptions?: string[];
   onDone?: () => void;
 }
 
@@ -40,30 +39,33 @@ const weightFields = [
 
 const priceFields = [
   { name: "harga_pabrik", label: "Harga Pabrik", unit: "Rp/kg", icon: DollarSign },
-  { name: "harga_pencairan", label: "Harga Pencairan", unit: "Rp/kg", icon: DollarSign },
   { name: "upah_mobil", label: "Upah Mobil", unit: "Rp", icon: DollarSign },
 ];
 
-export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
+export function PenjualanForm({ initial, supirOptions = [], onDone }: PenjualanFormProps) {
+  const isOther = initial
+    ? !supirOptions.includes(initial.supir)
+    : false;
+  const [supir, setSupir] = useState(initial?.supir ?? "");
+  const [supirMode, setSupirMode] = useState<"select" | "other">(
+    isOther ? "other" : "select",
+  );
   const [vals, setVals] = useState({
     berat_berangkat: initial?.berat_berangkat ?? 0,
     berat_pabrik: initial?.berat_pabrik ?? 0,
     potongan_pabrik: initial?.potongan_pabrik ?? 0,
     harga_pabrik: initial?.harga_pabrik ?? 0,
-    harga_pencairan: initial?.harga_pencairan ?? 0,
     upah_mobil: initial?.upah_mobil ?? 0,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
 
   const calc = useMemo(() => {
-    const selisih = vals.berat_berangkat - vals.berat_pabrik - vals.potongan_pabrik;
-    const total = vals.berat_pabrik - vals.potongan_pabrik;
+    const selisih = vals.berat_berangkat - vals.berat_pabrik;
+    const totalPabrik = vals.berat_pabrik - vals.potongan_pabrik;
     return {
       selisih,
-      totalPabrik: total,
-      totalMobil: total * vals.harga_pabrik,
-      totalPencairan: total * vals.harga_pencairan - vals.upah_mobil,
+      totalPabrik,
     };
   }, [vals]);
 
@@ -75,14 +77,18 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
     const nextErrors: Record<string, string> = {};
 
     if (!formData.get("tanggal")) nextErrors.tanggal = "Tanggal wajib diisi";
-    if (!formData.get("supir")) nextErrors.supir = "Nama supir wajib diisi";
+
+    const supirVal = supirMode === "other"
+      ? (formData.get("supir_other") as string)?.trim()
+      : supir;
+    if (!supirVal) nextErrors.supir = "Nama supir wajib diisi";
+    else formData.set("supir", supirVal);
 
     for (const key of [
       "berat_berangkat",
       "berat_pabrik",
       "potongan_pabrik",
       "harga_pabrik",
-      "harga_pencairan",
       "upah_mobil",
     ]) {
       const v = Number(formData.get(key));
@@ -98,6 +104,8 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
       toast.error("Form belum lengkap. Periksa field yang ditandai.");
       return;
     }
+
+    formData.delete("supir_other");
 
     setErrors({});
     setPending(true);
@@ -117,7 +125,7 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
 
   return (
     <form action={handleSubmit} className="space-y-6" noValidate>
-      {<section className="space-y-4">
+      <section className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Calendar className="size-4" /> Informasi Pengiriman
         </div>
@@ -138,21 +146,63 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
           </div>
           <div>
             <Label htmlFor="supir">Supir Mobil</Label>
-            <Input
-              id="supir"
-              name="supir"
-              placeholder="Nama supir"
-              defaultValue={initial?.supir ?? ""}
-              aria-invalid={!!errors.supir}
-            />
+            {supirMode === "select" ? (
+              <div className="flex gap-2">
+                <select
+                  id="supir"
+                  name="supir"
+                  value={supir}
+                  onChange={(e) => setSupir(e.target.value)}
+                  className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 ${
+                    errors.supir
+                      ? "border-destructive focus-visible:ring-destructive"
+                      : "border-input focus-visible:ring-ring"
+                  }`}
+                  aria-invalid={!!errors.supir}
+                >
+                  <option value="" disabled>Pilih supir...</option>
+                  {supirOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setSupirMode("other"); setSupir(""); }}
+                >
+                  Lainnya...
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  id="supir_other"
+                  name="supir_other"
+                  placeholder="Nama supir baru"
+                  defaultValue={isOther ? initial?.supir : ""}
+                  aria-invalid={!!errors.supir}
+                />
+                {supirOptions.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setSupirMode("select"); setSupir(""); }}
+                  >
+                    Pilih
+                  </Button>
+                )}
+              </div>
+            )}
             {errors.supir && (
               <p className="text-xs text-destructive mt-1">{errors.supir}</p>
             )}
           </div>
         </div>
-      </section>}
+      </section>
 
-      {<section className="space-y-4 rounded-xl border bg-muted/30 p-4">
+      <section className="space-y-4 rounded-xl border bg-muted/30 p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Truck className="size-4" /> Berat Kendaraan
         </div>
@@ -182,14 +232,14 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             </div>
           ))}
         </div>
-      </section>}
+      </section>
 
-      {<section className="space-y-4 rounded-xl border bg-muted/30 p-4">
+      <section className="space-y-4 rounded-xl border bg-muted/30 p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <DollarSign className="size-4" /> Harga & Upah
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {priceFields.map((f) => (
             <div key={f.name}>
               <Label htmlFor={f.name}>
@@ -214,7 +264,7 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
             </div>
           ))}
         </div>
-      </section>}
+      </section>
 
       <section className="rounded-xl border bg-gradient-to-br from-emerald-50 to-blue-50 p-5 space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
@@ -224,12 +274,8 @@ export function PenjualanForm({ initial, onDone }: PenjualanFormProps) {
           <span className="text-muted-foreground">Selisih Ram - Pabrik:</span>
           <span className="text-right font-semibold">{calc.selisih.toLocaleString("id-ID")} kg</span>
           <span className="text-muted-foreground">Total Pabrik:</span>
-          <span className="text-right font-semibold">{calc.totalPabrik.toLocaleString("id-ID")} kg</span>
-          <span className="text-muted-foreground">Total Mobil:</span>
-          <span className="text-right font-semibold">{rupiah(calc.totalMobil)}</span>
-          <span className="text-muted-foreground">Total Pencairan:</span>
           <span className="text-right font-bold text-emerald-700 text-base">
-            {rupiah(calc.totalPencairan)}
+            {calc.totalPabrik.toLocaleString("id-ID")} kg
           </span>
         </div>
       </section>

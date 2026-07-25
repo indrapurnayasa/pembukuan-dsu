@@ -1,36 +1,30 @@
 import { PenjualanForm } from "@/components/forms/PenjualanForm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { PageHeader } from "@/components/PageHeader";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck } from "lucide-react";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
-export default function PenjualanPage() {
+export const revalidate = 0;
+
+export default async function PenjualanPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("penjualan")
+    .select("supir")
+    .order("supir");
+
+  const supirOptions = [...new Set((data ?? []).map((r) => r.supir).filter(Boolean))];
+
   return (
     <main className="container mx-auto max-w-2xl py-8 px-4">
-      <div className="mb-6">
-        <p className="text-sm font-medium text-muted-foreground">Input Data</p>
-        <h1 className="text-2xl font-bold tracking-tight mt-0.5 flex items-center gap-2">
-          <Truck className="size-6 text-primary" />
-          Form Penjualan Buah
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Catat pengiriman, berat, harga, dan pencairan
-        </p>
-      </div>
-
+      <PageHeader label="Input Data" title="Form Penjualan Buah" icon={Truck} description="Catat pengiriman, berat, harga, dan upah" />
       <Card className="border shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Pengiriman Baru</CardTitle>
-          <CardDescription>
-            Perhitungan otomatis saat Anda mengisi form
-          </CardDescription>
+          <CardDescription>Perhitungan otomatis saat Anda mengisi form</CardDescription>
         </CardHeader>
         <CardContent>
-          <PenjualanForm />
+          <PenjualanForm supirOptions={supirOptions} />
         </CardContent>
       </Card>
     </main>

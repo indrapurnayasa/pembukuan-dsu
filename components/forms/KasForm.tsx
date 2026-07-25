@@ -28,22 +28,36 @@ interface KasFormProps {
 
 export function KasForm({ initial, onDone }: KasFormProps) {
   const [transaksi, setTransaksi] = useState(initial?.transaksi ?? "");
+  const [amount, setAmount] = useState(() => {
+    const v = initial ? (initial.debet || initial.kredit) : 0;
+    return v ? String(v) : "";
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const selected = transaksiOptions.find((t) => t.value === transaksi);
   const isDebit = selected?.debit ?? false;
 
+  const formatRupiah = (s: string) => {
+    const digits = s.replace(/\D/g, "");
+    if (!digits) return "";
+    return new Intl.NumberFormat("id-ID").format(Number(digits));
+  };
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 12);
+    setAmount(digits);
+  }
+
   async function handleSubmit(formData: FormData) {
     const nextErrors: Record<string, string> = {};
     const tanggal = formData.get("tanggal") as string;
-    const amount = isDebit
-      ? (formData.get("debet") as string)
-      : (formData.get("kredit") as string);
 
     if (!tanggal) nextErrors.tanggal = "Tanggal wajib diisi";
     if (!transaksi) nextErrors.transaksi = "Pilih jenis transaksi";
     if (!amount || Number(amount) <= 0)
       nextErrors.amount = "Jumlah harus lebih dari 0";
+    else if (Number(amount) > 999999999999)
+      nextErrors.amount = "Maksimal Rp 999.999.999.999";
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -53,6 +67,9 @@ export function KasForm({ initial, onDone }: KasFormProps) {
 
     setErrors({});
     setPending(true);
+
+    formData.set(isDebit ? "debet" : "kredit", amount);
+    formData.set(isDebit ? "kredit" : "debet", "0");
 
     try {
       if (initial) {
@@ -133,11 +150,10 @@ export function KasForm({ initial, onDone }: KasFormProps) {
             <Input
               id="amount"
               name={isDebit ? "debet" : "kredit"}
-              type="number"
-              min="0"
-              defaultValue={
-                isDebit ? initial?.debet ?? "" : initial?.kredit ?? ""
-              }
+              type="text"
+              inputMode="numeric"
+              value={formatRupiah(amount)}
+              onChange={handleAmountChange}
               placeholder={isDebit ? "Jumlah masuk" : "Jumlah keluar"}
               aria-invalid={!!errors.amount}
             />

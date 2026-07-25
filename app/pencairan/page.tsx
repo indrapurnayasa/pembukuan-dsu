@@ -1,36 +1,28 @@
 import { PencairanForm } from "@/components/forms/PencairanForm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { PageHeader } from "@/components/PageHeader";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Banknote } from "lucide-react";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
-export default function PencairanPage() {
+export const revalidate = 0;
+
+export default async function PencairanPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("penjualan")
+    .select("id,tanggal,supir,berat_berangkat,upah_mobil,total_pabrik,harga_pabrik")
+    .order("created_at", { ascending: false });
+
   return (
-    <main className="container mx-auto max-w-xl py-8 px-4">
-      <div className="mb-6">
-        <p className="text-sm font-medium text-muted-foreground">Input Data</p>
-        <h1 className="text-2xl font-bold tracking-tight mt-0.5 flex items-center gap-2">
-          <Banknote className="size-6 text-primary" />
-          Form Pencairan
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Catat deposit, harga pencairan, dan kekurangan bayar
-        </p>
-      </div>
-
+    <main className="container mx-auto max-w-2xl py-8 px-4">
+      <PageHeader label="Input Data" title="Form Pencairan" icon={Banknote} description="Pilih penjualan, harga mobil & pencairan otomatis" />
       <Card className="border shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Pencairan Baru</CardTitle>
-          <CardDescription>
-            Kekurangan bayar dihitung otomatis
-          </CardDescription>
+          <CardDescription>Pilih tanggal lalu pilih record penjualan</CardDescription>
         </CardHeader>
         <CardContent>
-          <PencairanForm />
+          <PencairanForm penjualanOptions={data ?? []} />
         </CardContent>
       </Card>
     </main>

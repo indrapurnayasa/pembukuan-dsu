@@ -22,7 +22,6 @@ const env = Object.fromEntries(
 const rawUrl = env.NEXT_PUBLIC_SUPABASE_URL;
 const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// ponytail: sanitize URL in case user pasted /rest/v1/ endpoint
 const url = rawUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/$/, "");
 
 if (!url || !key || url.includes("xxxx")) {
@@ -35,8 +34,18 @@ const supabase = createClient(url, key);
 const today = new Date().toISOString().split("T")[0];
 const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
+function calcPenjualan(r) {
+  const selisih = r.berat_berangkat - r.berat_pabrik;
+  const totalPabrik = r.berat_pabrik - r.potongan_pabrik;
+  return { ...r, selisih_ram_pabrik: selisih, total_pabrik: totalPabrik };
+}
+
 async function seed() {
-  console.log("Seeding dummy data...");
+  console.log("Seeding dummy data (schema v3)...");
+
+  await supabase.from("pencairan").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase.from("penjualan").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase.from("kas").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
   const { error: kasError } = await supabase.from("kas").insert([
     {
@@ -44,7 +53,6 @@ async function seed() {
       transaksi: "Deposit Ram Singkut",
       debet: 50000000,
       kredit: 0,
-      saldo: 50000000,
       keterangan: "Dummy deposit",
     },
     {
@@ -52,7 +60,6 @@ async function seed() {
       transaksi: "Pembelian Brondolan",
       debet: 0,
       kredit: 35000000,
-      saldo: 15000000,
       keterangan: "Dummy pembelian",
     },
     {
@@ -60,27 +67,21 @@ async function seed() {
       transaksi: "Biaya Harian",
       debet: 0,
       kredit: 2500000,
-      saldo: 12500000,
       keterangan: "Dummy biaya",
     },
   ]);
 
   if (kasError) console.error("KAS seed error:", kasError);
 
-  const { error: penjualanError } = await supabase.from("penjualan").insert([
+  const penjualanRows = [
     {
       tanggal: yesterday,
       supir: "Fadli",
       berat_berangkat: 10450,
       berat_pabrik: 10390,
       potongan_pabrik: 727,
-      selisih_ram_pabrik: -667,
-      total_pabrik: 9663,
       harga_pabrik: 3500,
-      harga_pencairan: 3600,
-      upah_mobil: 500000,
-      total_mobil: 33820500,
-      total_pencairan: 34286800,
+      upah_mobil: 500,
     },
     {
       tanggal: today,
@@ -88,38 +89,37 @@ async function seed() {
       berat_berangkat: 10800,
       berat_pabrik: 10690,
       potongan_pabrik: 855,
-      selisih_ram_pabrik: -745,
-      total_pabrik: 9835,
       harga_pabrik: 3600,
-      harga_pencairan: 3700,
-      upah_mobil: 550000,
-      total_mobil: 35406000,
-      total_pencairan: 35839500,
+      upah_mobil: 550,
     },
-  ]);
+  ].map(calcPenjualan);
 
-  if (penjualanError) console.error("Penjualan seed error:", penjualanError);
+  const { data: penjualanData, error: penjualanError } = await supabase
+    .from("penjualan")
+    .insert(penjualanRows)
+    .select("id, berat_berangkat, upah_mobil, total_pabrik, harga_pabrik");
 
-  const { error: pencairanError } = await supabase.from("pencairan").insert([
-    {
+  if (penjualanError) {
+    console.error("Penjualan seed error:", penjualanError);
+    return;
+  }
+
+  const pencairanRows = penjualanData.map((p) => {
+    const deposit_trawas = p.berat_berangkat * p.upah_mobil;
+    const harga_pencairan = p.total_pabrik * p.harga_pabrik;
+    const total_pencairan = harga_pencairan - deposit_trawas;
+    return {
       tanggal: today,
-      supir: "Fadli",
-      deposit_trawas: 20000000,
-      harga_pencairan: 34286800,
-      pencairan_singkut: 10000000,
-      keuntungan_ram_singkut: 2000000,
-      kekurangan_bayar: 2286800,
-    },
-    {
-      tanggal: today,
-      supir: "Arif",
-      deposit_trawas: 25000000,
-      harga_pencairan: 35839500,
-      pencairan_singkut: 8000000,
-      keuntungan_ram_singkut: 1500000,
-      kekurangan_bayar: 1339500,
-    },
-  ]);
+      penjualan_id: p.id,
+      deposit_trawas,
+      harga_pencairan,
+      total_pencairan,
+    };
+  });
+
+  const { error: pencairanError } = await supabase
+    .from("pencairan")
+    .insert(pencairanRows);
 
   if (pencairanError) console.error("Pencairan seed error:", pencairanError);
 
